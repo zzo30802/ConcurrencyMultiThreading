@@ -33,6 +33,8 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -finline-limit=10000")
 # find package all required
 #---------WINDOWS---------
 IF (WIN32)
+SET(CMAKE_REQUIRED_LIBRARIES legacy_stdio_definitions.lib)
+
 ## OpenCV
 set(OpenCV 3.4.9  $ENV{THIRD_PARTY}/opencv/)
 set(OpenCV_LIBS $ENV{THIRD_PARTY}/opencv/build/x64/vc15/lib)
@@ -77,20 +79,9 @@ ENDIF()
 
 
 ## file to build
-set(SRC
-	${CMAKE_CURRENT_SOURCE_DIR}/src/ensemble_module.cpp
-	${CMAKE_CURRENT_SOURCE_DIR}/src/processfunction.cpp
-	${CMAKE_CURRENT_SOURCE_DIR}/include/attribute_ensemble_module.h
-	${CMAKE_CURRENT_SOURCE_DIR}/include/attribute_module.h
-	${CMAKE_CURRENT_SOURCE_DIR}/include/common.h
-	${CMAKE_CURRENT_SOURCE_DIR}/include/computervision.h
-	${CMAKE_CURRENT_SOURCE_DIR}/include/json.hpp
-	${CMAKE_CURRENT_SOURCE_DIR}/include/processfunction.h
-	${CMAKE_CURRENT_SOURCE_DIR}/include/ensemble_module.h
-  )
+#set(SRC)#${CMAKE_CURRENT_SOURCE_DIR}
   
 # code
-#include_directories(${CMAKE_SOURCE_DIR}/include/spinnaker)   # ./include/spinnaker
 include_directories(${CMAKE_SOURCE_DIR}/include)	     # ./include
 aux_source_directory(./src DIR_SRCS)                         # cpp
 # global stitching
@@ -99,13 +90,13 @@ aux_source_directory(./src DIR_SRCS)                         # cpp
 
 
 # output binary
-add_executable(${PROJECT_NAME} main.cpp ${SRC} )
+add_executable(${PROJECT_NAME} src/2-1.cpp  ) #${SRC}
 # output so
 #add_library( ${PROJECT_NAME} SHARED ${SRC} )
 # link library
 
 IF (WIN32)
-  target_link_libraries(${PROJECT_NAME} opencv_world349.lib boost_system-vc141-mt-x64-1_66.lib libboost_filesystem-vc141-mt-x64-1_66.lib libboost_regex-vc141-mt-x64-1_66.lib) 
+  target_link_libraries(${PROJECT_NAME} opencv_world349.lib boost_system-vc141-mt-x64-1_66.lib libboost_filesystem-vc141-mt-x64-1_66.lib libboost_regex-vc141-mt-x64-1_66.lib "legacy_stdio_definitions.lib" ws2_32.lib) 
 ELSE()
   target_link_libraries(${PROJECT_NAME} -lstdc++fs -lboost_system -lboost_filesystem -lboost_regex  ${OpenCV_LIBS} ${Boost_LIBRARIES}) #libSpinnaker.so ${Boost_LIBRARIES} ${VLFEAT_LIBRARY} -lgomp
 ENDIF()

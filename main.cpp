@@ -1,2 +1,9 @@
 #include <iostream>
-int main() {}
+
+void hello() {
+  std::cout << std::endl;
+}
+
+int main() {
+  std::cout << "main() start" << std::endl;
+}
