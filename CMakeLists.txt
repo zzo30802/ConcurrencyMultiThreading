@@ -90,7 +90,7 @@ aux_source_directory(./src DIR_SRCS)                         # cpp
 
 
 # output binary
-add_executable(${PROJECT_NAME} src/2-1.cpp  ) #${SRC}
+add_executable(${PROJECT_NAME} src/3-2.cpp  ) #${SRC}
 # output so
 #add_library( ${PROJECT_NAME} SHARED ${SRC} )
 # link library

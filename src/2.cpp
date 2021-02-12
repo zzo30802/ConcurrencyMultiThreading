@@ -1,9 +1,11 @@
 #include <stdio.h>
 
+#include <algorithm>
 #include <chrono>
 #include <iostream>
 #include <string>
 #include <thread>
+#include <vector>
 
 /*
 1 : 創建std::thread: uniform initialization, Lambda
@@ -12,9 +14,10 @@
 4 : 結束thread: RAII
 5 : detach()使用時機範例 (開新檔案處理)
 6 : Passing arguments to a thread function
-7 : 
+7 : scoped_thread & joining_thread
+8 : Spawn some threads and wait for them to finish
 */
-#define test_idx 7
+#define test_idx 8
 #if test_idx == 1
 
 void do_something() {
@@ -282,14 +285,13 @@ int num(0);
 std::thread t(&X::do_lengthy_work, &my_x, num);
 #elif test_idx == 7
 
-// scoped_thread
+// -----------------scoped_thread--------------------
 /*
 // 直接在建構子中檢查thread是否可以匯入
 void do_something(int &i) {
   ++i;
   std::cout << i << std::endl;
 }
-
 void do_something_in_current_thread() {
   //...
 }
@@ -301,7 +303,6 @@ struct func {
       do_something(j);
   }
 };
-
 class scoped_thread {
   std::thread t;
  public:
@@ -316,7 +317,6 @@ class scoped_thread {
   scoped_thread(scoped_thread const &) = delete;
   scoped_thread &operator=(scoped_thread const &) = delete;
 };
-
 void f() {
   int some_local_state;
   scoped_thread t(std::thread(func(some_local_state)));  // 4
@@ -330,67 +330,58 @@ int main() {
 }
 */
 
-// joining_thread
-// class joining_thread{
-//   std::thread t;
-//   public:
-//     joining_thread() noexcept=default;
-//     template<typename Callable, typename ... Args>
-//     explicit joining_thread
-// }
+// -----------------joining_thread--------------------
+class joining_thread {
+  std::thread t;
 
-// class string {
-//   char* data;
+ public:
+  joining_thread() noexcept = default;
+  template <typename Callable, typename... Args>
+  explicit joining_thread(Callable&& func, Args&&... args) : t(std::forward<Callable>(func), std::forward<Args>(args)...) {}
+  explicit joining_thread(std::thread t_) noexcept : t(std::move(t_)) {}
+  joining_thread(joining_thread&& other) noexcept : t(std::move(other.t)) {}
+  joining_thread& operator=(joining_thread&& other) noexcept {
+    if (t.joinable()) {
+      t.join();
+    }
+    t = std::move(other.t);
+    return *this;
+  }
+  joining_thread& operator=(std::thread other) noexcept {
+    if (t.joinable())
+      t.join();
+    t = std::move(other);
+    return *this;
+  }
+  ~joining_thread() noexcept {
+    if (t.joinable())
+      t.join();
+  }
+  void swap(joining_thread& other) noexcept {
+    t.swap(other.t);
+  }
+  std::thread::id get_id() const noexcept {
+    return t.get_id();
+  }
+  bool joinable() const noexcept {
+    return t.joinable();
+  }
+  void join() {
+    t.join();
+  }
+  void detach() {
+    t.detach();
+  }
+  std::thread& as_thread() noexcept {
+    return t;
+  }
+  const std::thread& as_thread() const noexcept {
+    return t;
+  }
+};
 
-//  public:
-//   // copy constructor
-//   string(const char* p) {
-//     size_t size = std::strlen(p) + 1;
-//     data = new char[size];
-//     std::memcpy(data, p, size);
-//   }
-//   // move constructor
-//   string(string&& rhs) {
-//     data = rhs.data;
-//     rhs.data = nullptr;
-//   }
-//   ~string() {
-//     delete[] data;
-//   }
-// };
-
-// struct FishData {
-//   std::string str = "aaa";
-//   // Much heavy data structure
-// };
-
-// struct Fish {
-//   Fish(const FishData& a) {
-//     // puts("fish copy conversion ctor");
-//     std::cout << a.str << std::endl;
-//   }
-//   Fish(FishData&& a) {
-//     // puts("fish move conversion ctor");
-//     std::cout << a.str << std::endl;
-//   }
-// };
-
-// template <typename T>
-// Fish MakeFish(T&& fd) {
-//   return Fish{fd};
-// }
-
-// int main() {
-//   FishData fd;
-//   FishData fd2;
-//   std::cout << fd.str << std::endl;
-//   // FishData(fd);              // #1: l-value
-//   FishData(FishData{});      // #2: r-value
-//   FishData(std::move(fd2));  // #3: r-value
-
-//   // FishData fd3{fd};
-//   FishData fd4(fd);
-// }
+/*
+// std::forward()
 // https://blog.csdn.net/wangshubo1989/article/details/50485951
 struct A {
   A(int&& n) { std::cout << "rvalue overload, n=" << n << "\n"; }
@@ -410,6 +401,32 @@ class B {
 };
 
 template <class T, class U>
-std::unique_ptr<T> make_unique1()
+std::unique_ptr<T> make_unique1(U&& u) {
+  return std::unique_ptr<T>(new T(std::forward<U>(u)));
+}
 
+template <class T, class... U>
+std::unique_ptr<T> make_unique(U&&... u) {
+  return std::unique_ptr<T>(new T(std::forward<U>(u)...));
+}
+int main() {
+  auto p1 = make_unique1<A>(2);  // rvalue
+  int i = 1;
+  auto p2 = make_unique1<A>(i);  // lvalue
+
+  std::cout << "B\n";
+  auto t = make_unique<B>(2, i, 3);
+}
+*/
+#elif test_idx == 8
+// Spawn some threads and wait for them to finish
+void do_work(unsigned id);
+void f() {
+  std::vector<std::thread> threads;
+  for (unsigned i = 0; i < 20; ++i) {
+    threads.push_back(std::thread(do_work, i));  // Spawn threads
+  }
+  // Call join() on each thread in return
+  std::for_each(threads.begin(), threads.end(), std::mem_fn(&std::thread::join));
+}
 #endif
